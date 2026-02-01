@@ -1,28 +1,92 @@
+import { query } from '@/lib/db';
 import Link from 'next/link';
+import { vipFiltersSchema } from '@/lib/schemas';
 
-export default function VIPCustomersPage() {
-  const customers = [
-    { id: 'C001', name: 'María González', email: 'maria.g@email.com', orders: 45, spending: 15230, tier: 'gold' },
-    { id: 'C002', name: 'Carlos Ramírez', email: 'carlos.r@email.com', orders: 38, spending: 12450, tier: 'gold' },
-    { id: 'C003', name: 'Ana Martínez', email: 'ana.m@email.com', orders: 28, spending: 8920, tier: 'silver' },
-    { id: 'C004', name: 'Luis Hernández', email: 'luis.h@email.com', orders: 52, spending: 18760, tier: 'gold' },
-    { id: 'C005', name: 'Patricia López', email: 'patricia.l@email.com', orders: 22, spending: 7340, tier: 'silver' },
-    { id: 'C006', name: 'Roberto Silva', email: 'roberto.s@email.com', orders: 41, spending: 13890, tier: 'gold' },
-    { id: 'C007', name: 'Carmen Torres', email: 'carmen.t@email.com', orders: 19, spending: 6210, tier: 'silver' },
-    { id: 'C008', name: 'Diego Vargas', email: 'diego.v@email.com', orders: 33, spending: 10540, tier: 'silver' }
-  ];
+export const dynamic = 'force-dynamic';
 
-  const goldCustomers = customers.filter(c => c.tier === 'gold').length;
-  const silverCustomers = customers.filter(c => c.tier === 'silver').length;
-  const totalSpending = customers.reduce((sum, c) => sum + c.spending, 0);
-  const avgSpending = totalSpending / customers.length;
+interface VIPCustomerRow {
+  id: number;
+  name: string;
+  email: string;
+  total_orders: string;
+  total_spent: string;
+  membership_level: string;
+  last_purchase_date: string;
+}
+
+interface CountResult {
+  total: string;
+}
+
+export default async function VIPCustomersPage({
+  searchParams,
+}: {
+  searchParams: { [key: string]: string | string[] | undefined };
+}) {
+  const rawParams = {
+    tier: Array.isArray(searchParams.tier)
+      ? searchParams.tier[0]
+      : searchParams.tier,
+    minOrders: Array.isArray(searchParams.minOrders)
+      ? searchParams.minOrders[0]
+      : searchParams.minOrders,
+    page: Array.isArray(searchParams.page)
+      ? searchParams.page[0]
+      : searchParams.page,
+    limit: Array.isArray(searchParams.limit)
+      ? searchParams.limit[0]
+      : searchParams.limit,
+  };
+
+  const filters = vipFiltersSchema.parse(rawParams);
+  const offset = (filters.page - 1) * filters.limit;
+
+  const queryParams: (string | number)[] = [];
+  const conditions: string[] = [];
+
+  if (filters.tier !== 'all') {
+    if (filters.tier === 'gold') {
+      conditions.push(`membership_level = 'Gold Member'`);
+    } else if (filters.tier === 'silver') {
+      conditions.push(`membership_level = 'Silver Member'`);
+    }
+  }
+
+  if (filters.minOrders !== undefined) {
+    queryParams.push(filters.minOrders);
+    conditions.push(`total_orders >= $${queryParams.length}`);
+  }
+
+  const whereClause = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
+
+  const result = await query<VIPCustomerRow>(
+    `SELECT * FROM view_vip_customers ${whereClause} 
+     ORDER BY total_spent DESC 
+     LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}`,
+    [...queryParams, filters.limit, offset]
+  );
+
+  const customers = result.rows;
+
+  const countResult = await query<CountResult>(
+    `SELECT COUNT(*) as total FROM view_vip_customers ${whereClause}`,
+    queryParams
+  );
+
+  const totalItems = parseInt(countResult.rows[0]?.total || '0');
+  const totalPages = Math.ceil(totalItems / filters.limit);
+
+  const goldCustomers = customers.filter(c => c.membership_level === 'Gold Member').length;
+  const silverCustomers = customers.filter(c => c.membership_level === 'Silver Member').length;
+  const totalSpending = customers.reduce((sum, c) => sum + parseFloat(c.total_spent), 0);
+  const avgSpending = customers.length > 0 ? totalSpending / customers.length : 0;
 
   const getInitials = (name: string) => {
     return name.split(' ').map(n => n[0]).join('');
   };
 
-  const getTierBadge = (tier: string) => {
-    if (tier === 'gold') {
+  const getTierBadge = (level: string) => {
+    if (level === 'Gold Member') {
       return (
         <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-[#E8A0FF] text-[#1A1D29]">
           <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
@@ -32,9 +96,16 @@ export default function VIPCustomersPage() {
         </span>
       );
     }
+    if (level === 'Silver Member') {
+      return (
+        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-[#D0FFA4] text-[#1A1D29]">
+          Silver
+        </span>
+      );
+    }
     return (
-      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-[#D0FFA4] text-[#1A1D29]">
-        Silver
+      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-[#83E7FF] text-[#000181]">
+        Bronze
       </span>
     );
   };
@@ -43,8 +114,8 @@ export default function VIPCustomersPage() {
     <div className="min-h-screen bg-[#FAFBFC] py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
-          <Link 
-            href="/" 
+          <Link
+            href="/"
             className="inline-flex items-center text-[#006EE9] hover:text-[#000181] transition-colors duration-200 font-medium group"
           >
             <svg className="w-5 h-5 mr-2 group-hover:-translate-x-1 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -57,14 +128,44 @@ export default function VIPCustomersPage() {
         <div className="bg-white rounded-2xl border border-[#E5E7EB] overflow-hidden mb-8">
           <div className="bg-[#000181] px-8 py-6">
             <h1 className="text-3xl font-bold text-white">Clientes VIP</h1>
-            <p className="text-[#83E7FF] mt-2">Gestión de clientes premium y análisis de compras</p>
+            <p className="text-[#83E7FF] mt-2">Gestion de clientes premium y analisis de compras</p>
+
+            <div className="mt-6">
+              <form className="flex flex-wrap gap-4 items-end">
+                <div>
+                  <label className="block text-[#83E7FF] text-sm font-medium mb-1">Nivel</label>
+                  <select
+                    name="tier"
+                    defaultValue={filters.tier}
+                    className="px-4 py-2 rounded-lg bg-white/10 border border-[#83E7FF]/30 text-white focus:outline-none focus:ring-2 focus:ring-[#83E7FF] focus:border-transparent"
+                  >
+                    <option value="all" className="text-[#1A1D29]">Todos</option>
+                    <option value="gold" className="text-[#1A1D29]">Gold</option>
+                    <option value="silver" className="text-[#1A1D29]">Silver</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[#83E7FF] text-sm font-medium mb-1">Ordenes minimas</label>
+                  <input
+                    type="number"
+                    name="minOrders"
+                    defaultValue={filters.minOrders || ''}
+                    placeholder="0"
+                    className="px-4 py-2 rounded-lg bg-white/10 border border-[#83E7FF]/30 text-white placeholder-[#83E7FF]/50 focus:outline-none focus:ring-2 focus:ring-[#83E7FF] focus:border-transparent"
+                  />
+                </div>
+                <button type="submit" className="bg-[#D0FFA4] text-[#000181] px-6 py-2 rounded-lg font-semibold hover:bg-[#83E7FF] transition-colors duration-200">
+                  Filtrar
+                </button>
+              </form>
+            </div>
           </div>
 
           <div className="p-8">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
               <div className="bg-[#FAFBFC] border border-[#E5E7EB] rounded-xl p-6">
                 <p className="text-sm font-medium text-[#1A1D29] mb-1">Total VIP</p>
-                <p className="text-3xl font-bold text-[#E8A0FF]">{customers.length}</p>
+                <p className="text-3xl font-bold text-[#E8A0FF]">{totalItems}</p>
               </div>
               <div className="bg-[#FAFBFC] border border-[#E5E7EB] rounded-xl p-6">
                 <p className="text-sm font-medium text-[#1A1D29] mb-1">Clientes Gold</p>
@@ -96,16 +197,17 @@ export default function VIPCustomersPage() {
                     <tr key={index} className="hover:bg-[#F5F7FA] transition-colors duration-150">
                       <td className="px-6 py-4">
                         <div className="flex items-center">
-                          <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-sm mr-4 ${
-                            customer.tier === 'gold' 
-                              ? 'bg-[#E8A0FF] text-[#1A1D29]' 
-                              : 'bg-[#D0FFA4] text-[#1A1D29]'
-                          }`}>
+                          <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-sm mr-4 ${customer.membership_level === 'Gold Member'
+                            ? 'bg-[#E8A0FF] text-[#1A1D29]'
+                            : customer.membership_level === 'Silver Member'
+                              ? 'bg-[#D0FFA4] text-[#1A1D29]'
+                              : 'bg-[#83E7FF] text-[#000181]'
+                            }`}>
                             {getInitials(customer.name)}
                           </div>
                           <div>
                             <p className="font-semibold text-[#1A1D29]">{customer.name}</p>
-                            <p className="text-sm text-[#6B7280]">{customer.id}</p>
+                            <p className="text-sm text-[#6B7280]">ID: {customer.id}</p>
                           </div>
                         </div>
                       </td>
@@ -114,20 +216,44 @@ export default function VIPCustomersPage() {
                       </td>
                       <td className="px-6 py-4 text-center">
                         <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-[#83E7FF] text-[#000181]">
-                          {customer.orders}
+                          {customer.total_orders}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-right font-bold text-[#1A1D29]">
-                        ${customer.spending.toLocaleString()}
+                        ${parseFloat(customer.total_spent).toLocaleString()}
                       </td>
                       <td className="px-6 py-4 text-center">
-                        {getTierBadge(customer.tier)}
+                        {getTierBadge(customer.membership_level)}
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
+
+            {totalPages > 1 && (
+              <div className="mt-8 flex justify-center gap-4">
+                {filters.page > 1 && (
+                  <Link
+                    href={`?tier=${filters.tier}&minOrders=${filters.minOrders || ''}&page=${filters.page - 1}&limit=${filters.limit}`}
+                    className="px-4 py-2 rounded border hover:bg-[#F5F7FA]"
+                  >
+                    Anterior
+                  </Link>
+                )}
+                <span className="py-2">
+                  Pagina {filters.page} de {totalPages}
+                </span>
+                {filters.page < totalPages && (
+                  <Link
+                    href={`?tier=${filters.tier}&minOrders=${filters.minOrders || ''}&page=${filters.page + 1}&limit=${filters.limit}`}
+                    className="px-4 py-2 rounded border hover:bg-[#F5F7FA]"
+                  >
+                    Siguiente
+                  </Link>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>

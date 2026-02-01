@@ -1,36 +1,66 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Next.js Reports Dashboard
 
-## Getting Started
+## Descripcion
+Dashboard de reportes empresariales conectado a PostgreSQL con Docker Compose.
+Implementa 5 vistas SQL con funciones agregadas, filtros Zod y paginacion server-side.
 
-First, run the development server:
+## Requisitos
+- Docker y Docker Compose
+- Node.js 18+ (solo para desarrollo)
 
+## Ejecucion
+
+### Con Docker (Produccion)
 ```bash
+docker-compose up --build
+```
+La aplicacion estara disponible en http://localhost:3000
+
+### Desarrollo Local
+```bash
+cd next
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Estructura de la Base de Datos
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Tablas
+- customers: Clientes (id, name, email, country)
+- products: Productos (id, name, category, price, stock)
+- orders: Ordenes (id, customer_id, status, order_date)
+- order_items: Detalle de ordenes (order_id, product_id, quantity, unit_price)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Vistas de Reportes
+1. view_category_sales: Ventas por categoria con SUM, COUNT, GROUP BY, HAVING
+2. view_inventory_status: Estado de inventario con CASE, COALESCE
+3. view_vip_customers: Clientes VIP con HAVING, CASE, MAX, SUM
+4. view_monthly_sales: Ventas mensuales con CTE (WITH)
+5. view_product_ranking: Ranking de productos con DENSE_RANK (Window Function)
 
-## Learn More
+## Justificacion de Indices
 
-To learn more about Next.js, take a look at the following resources:
+### idx_orders_customer_id
+Las vistas view_vip_customers y view_monthly_sales hacen JOIN constante entre orders y customers.
+Indexar la FK acelera drasticamente estos cruces.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### idx_order_items_product_id
+Casi todas las vistas (1, 3, 4, 5) hacen JOIN con order_items para calcular totales.
+Este indice es vital para evitar table scans masivos.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### idx_products_category
+La view_category_sales agrupa por categoria y view_product_ranking particiona por categoria.
+Este indice optimiza el agrupamiento.
 
-## Deploy on Vercel
+## Seguridad
+El rol app_client tiene permisos minimos:
+- Solo puede hacer SELECT en las 5 vistas
+- No tiene acceso a las tablas base
+- Las futuras tablas no son accesibles automaticamente
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Tecnologias
+- PostgreSQL 16
+- Next.js 15 con App Router
+- TypeScript
+- Zod para validacion de filtros
+- Tailwind CSS

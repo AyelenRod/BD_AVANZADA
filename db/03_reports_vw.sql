@@ -57,11 +57,12 @@ FROM products p;
 -- =================================================================
 -- VISTA 3: Clientes VIP (Alto Valor)
 -- REQUISITOS CUMPLIDOS:
--- 1. HAVING (Segundo uso obligatorio) [cite: 5]
--- 2. Funciones Agregadas (MAX, SUM) [cite: 5]
+-- 1. HAVING (Segundo uso obligatorio)
+-- 2. Funciones Agregadas (MAX, SUM)
+-- 3. CASE (Para clasificar clientes - Requisito de 2 views con CASE)
 
 -- GRAIN: Una fila por Cliente
--- METRICAS: Gasto total histórico, fecha de última compra
+-- METRICAS: Gasto total, Fecha última compra, Nivel de Membresía (Gold/Silver)
 -- GROUP BY: Agrupa todas las órdenes por cliente
 -- VERIFY: SELECT * FROM view_vip_customers ORDER BY total_spent DESC;
 -- =================================================================
@@ -73,6 +74,11 @@ SELECT
     c.email,
     COUNT(o.id) as total_orders,
     SUM(oi.quantity * oi.unit_price) as total_spent,
+    CASE 
+        WHEN SUM(oi.quantity * oi.unit_price) > 500 THEN 'Gold Member'
+        WHEN SUM(oi.quantity * oi.unit_price) > 200 THEN 'Silver Member'
+        ELSE 'Bronze Member'
+    END as membership_level,
     MAX(o.order_date) as last_purchase_date
 FROM customers c
 JOIN orders o ON c.id = o.customer_id
@@ -80,7 +86,6 @@ JOIN order_items oi ON o.id = oi.order_id
 WHERE o.status = 'completed'
 GROUP BY c.id, c.name, c.email
 HAVING SUM(oi.quantity * oi.unit_price) > 0;
-
 
 -- =================================================================
 -- VISTA 4: Reporte Mensual (Evolución)

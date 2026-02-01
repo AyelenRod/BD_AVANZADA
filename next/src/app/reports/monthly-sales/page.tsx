@@ -1,37 +1,90 @@
+import { query } from '@/lib/db';
 import Link from 'next/link';
+import { monthlyFiltersSchema } from '@/lib/schemas';
 
-export default function MonthlySalesPage() {
-  const salesData = [
-    { month: 'Enero', sales: 28450, previousMonth: 26300, trend: 'up' },
-    { month: 'Febrero', sales: 31200, previousMonth: 28450, trend: 'up' },
-    { month: 'Marzo', sales: 29800, previousMonth: 31200, trend: 'down' },
-    { month: 'Abril', sales: 34500, previousMonth: 29800, trend: 'up' },
-    { month: 'Mayo', sales: 36700, previousMonth: 34500, trend: 'up' },
-    { month: 'Junio', sales: 38900, previousMonth: 36700, trend: 'up' },
-    { month: 'Julio', sales: 35600, previousMonth: 38900, trend: 'down' },
-    { month: 'Agosto', sales: 41200, previousMonth: 35600, trend: 'up' },
-    { month: 'Septiembre', sales: 39400, previousMonth: 41200, trend: 'down' },
-    { month: 'Octubre', sales: 43800, previousMonth: 39400, trend: 'up' },
-    { month: 'Noviembre', sales: 47200, previousMonth: 43800, trend: 'up' },
-    { month: 'Diciembre', sales: 52300, previousMonth: 47200, trend: 'up' }
-  ];
+export const dynamic = 'force-dynamic';
 
-  const calculateChange = (current: number, previous: number) => {
-    const change = ((current - previous) / previous) * 100;
-    return change.toFixed(1);
+interface MonthlySaleRow {
+  sale_month: string;
+  monthly_total: string;
+  estimated_tax: string;
+}
+
+interface CountResult {
+  total: string;
+}
+
+export default async function MonthlySalesPage({
+  searchParams,
+}: {
+  searchParams: { [key: string]: string | string[] | undefined };
+}) {
+  const rawParams = {
+    year: Array.isArray(searchParams.year)
+      ? searchParams.year[0]
+      : searchParams.year,
+    month: Array.isArray(searchParams.month)
+      ? searchParams.month[0]
+      : searchParams.month,
+    page: Array.isArray(searchParams.page)
+      ? searchParams.page[0]
+      : searchParams.page,
+    limit: Array.isArray(searchParams.limit)
+      ? searchParams.limit[0]
+      : searchParams.limit,
   };
 
-  const totalSales = salesData.reduce((sum, item) => sum + item.sales, 0);
-  const avgSales = totalSales / salesData.length;
-  const taxRate = 0.16;
-  const totalTaxes = totalSales * taxRate;
+  const filters = monthlyFiltersSchema.parse(rawParams);
+  const offset = (filters.page - 1) * filters.limit;
+
+  const queryParams: (string | number)[] = [];
+  let whereClause = '';
+  const conditions: string[] = [];
+
+  if (filters.year !== undefined) {
+    queryParams.push(filters.year.toString());
+    conditions.push(`sale_month LIKE $${queryParams.length} || '%'`);
+  }
+
+  if (conditions.length > 0) {
+    whereClause = 'WHERE ' + conditions.join(' AND ');
+  }
+
+  const result = await query<MonthlySaleRow>(
+    `SELECT * FROM view_monthly_sales ${whereClause} 
+     ORDER BY sale_month DESC 
+     LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}`,
+    [...queryParams, filters.limit, offset]
+  );
+
+  const salesData = result.rows;
+
+  const countResult = await query<CountResult>(
+    `SELECT COUNT(*) as total FROM view_monthly_sales ${whereClause}`,
+    queryParams
+  );
+
+  const totalItems = parseInt(countResult.rows[0]?.total || '0');
+  const totalPages = Math.ceil(totalItems / filters.limit);
+
+  const totalSales = salesData.reduce(
+    (sum, item) => sum + parseFloat(item.monthly_total),
+    0
+  );
+
+  const totalTaxes = salesData.reduce(
+    (sum, item) => sum + parseFloat(item.estimated_tax),
+    0
+  );
+
+  const avgSales = salesData.length > 0 ? totalSales / salesData.length : 0;
 
   return (
     <div className="min-h-screen bg-[#FAFBFC] py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
-          <Link 
-            href="/" 
+          <Link
+            href="/"
             className="inline-flex items-center text-[#006EE9] hover:text-[#000181] transition-colors duration-200 font-medium group"
           >
             <svg className="w-5 h-5 mr-2 group-hover:-translate-x-1 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -44,7 +97,28 @@ export default function MonthlySalesPage() {
         <div className="bg-white rounded-2xl border border-[#E5E7EB] overflow-hidden mb-8">
           <div className="bg-[#000181] px-8 py-6">
             <h1 className="text-3xl font-bold text-white">Ventas Mensuales</h1>
-            <p className="text-[#83E7FF] mt-2">Análisis de ingresos y tendencias del año</p>
+            <p className="text-[#83E7FF] mt-2">Resumen de ingresos y tendencias por mes</p>
+
+            <div className="mt-6">
+              <form className="flex flex-wrap gap-4 items-end">
+                <div>
+                  <label className="block text-[#83E7FF] text-sm font-medium mb-1">Año</label>
+                  <select
+                    name="year"
+                    defaultValue={filters.year || ''}
+                    className="px-4 py-2 rounded-lg bg-white/10 border border-[#83E7FF]/30 text-white focus:outline-none focus:ring-2 focus:ring-[#83E7FF] focus:border-transparent"
+                  >
+                    <option value="" className="text-[#1A1D29]">Todos los años</option>
+                    <option value="2023" className="text-[#1A1D29]">2023</option>
+                    <option value="2024" className="text-[#1A1D29]">2024</option>
+                    <option value="2025" className="text-[#1A1D29]">2025</option>
+                  </select>
+                </div>
+                <button type="submit" className="bg-[#D0FFA4] text-[#000181] px-6 py-2 rounded-lg font-semibold hover:bg-[#83E7FF] transition-colors duration-200">
+                  Filtrar
+                </button>
+              </form>
+            </div>
           </div>
 
           <div className="p-8">
@@ -69,66 +143,62 @@ export default function MonthlySalesPage() {
                   <tr className="bg-[#F5F7FA]">
                     <th className="px-6 py-4 text-left text-xs font-semibold text-[#1A1D29] uppercase tracking-wider">Mes</th>
                     <th className="px-6 py-4 text-right text-xs font-semibold text-[#1A1D29] uppercase tracking-wider">Ventas</th>
-                    <th className="px-6 py-4 text-right text-xs font-semibold text-[#1A1D29] uppercase tracking-wider">Mes Anterior</th>
-                    <th className="px-6 py-4 text-center text-xs font-semibold text-[#1A1D29] uppercase tracking-wider">Cambio %</th>
                     <th className="px-6 py-4 text-right text-xs font-semibold text-[#1A1D29] uppercase tracking-wider">Impuestos</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#E5E7EB]">
-                  {salesData.map((item, index) => {
-                    const change = calculateChange(item.sales, item.previousMonth);
-                    const taxes = item.sales * taxRate;
-                    
-                    return (
-                      <tr key={index} className="hover:bg-[#F5F7FA] transition-colors duration-150">
-                        <td className="px-6 py-4">
-                          <div className="flex items-center">
-                            <div className="w-10 h-10 rounded-lg bg-[#006EE9] flex items-center justify-center text-white font-bold text-sm mr-3">
-                              {index + 1}
-                            </div>
-                            <span className="font-semibold text-[#1A1D29]">{item.month}</span>
+                  {salesData.map((item, index) => (
+                    <tr key={index} className="hover:bg-[#F5F7FA] transition-colors duration-150">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center">
+                          <div className="w-10 h-10 rounded-lg bg-[#006EE9] flex items-center justify-center text-white font-bold text-sm mr-3">
+                            {item.sale_month.substring(5, 7)}
                           </div>
-                        </td>
-                        <td className="px-6 py-4 text-right font-bold text-[#1A1D29]">
-                          ${item.sales.toLocaleString()}
-                        </td>
-                        <td className="px-6 py-4 text-right text-[#6B7280]">
-                          ${item.previousMonth.toLocaleString()}
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center justify-center space-x-2">
-                            {item.trend === 'up' ? (
-                              <svg className="w-5 h-5 text-[#D0FFA4]" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 7.414V15a1 1 0 11-2 0V7.414L6.707 9.707a1 1 0 01-1.414 0z" clipRule="evenodd" />
-                              </svg>
-                            ) : (
-                              <svg className="w-5 h-5 text-[#E8A0FF]" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M14.707 10.293a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L9 12.586V5a1 1 0 012 0v7.586l2.293-2.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                              </svg>
-                            )}
-                            <span className={`font-semibold ${item.trend === 'up' ? 'text-[#D0FFA4]' : 'text-[#E8A0FF]'}`}>
-                              {item.trend === 'up' ? '+' : ''}{change}%
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-right text-[#6B7280]">
-                          ${taxes.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}
-                        </td>
-                      </tr>
-                    );
-                  })}
+                          <span className="font-semibold text-[#1A1D29]">{item.sale_month}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-right font-bold text-[#1A1D29]">
+                        ${parseFloat(item.monthly_total).toLocaleString()}
+                      </td>
+                      <td className="px-6 py-4 text-right text-[#6B7280]">
+                        ${parseFloat(item.estimated_tax).toFixed(2)}
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
                 <tfoot>
                   <tr className="bg-[#F5F7FA] font-bold">
-                    <td className="px-6 py-4 text-[#1A1D29]">TOTAL ANUAL</td>
+                    <td className="px-6 py-4 text-[#1A1D29]">TOTAL</td>
                     <td className="px-6 py-4 text-right text-[#006EE9]">${totalSales.toLocaleString()}</td>
-                    <td className="px-6 py-4"></td>
-                    <td className="px-6 py-4"></td>
-                    <td className="px-6 py-4 text-right text-[#D0FFA4]">${totalTaxes.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}</td>
+                    <td className="px-6 py-4 text-right text-[#D0FFA4]">${totalTaxes.toFixed(2)}</td>
                   </tr>
                 </tfoot>
               </table>
             </div>
+
+            {totalPages > 1 && (
+              <div className="mt-8 flex justify-center gap-4">
+                {filters.page > 1 && (
+                  <Link
+                    href={`?year=${filters.year || ''}&page=${filters.page - 1}&limit=${filters.limit}`}
+                    className="px-4 py-2 rounded border hover:bg-[#F5F7FA]"
+                  >
+                    Anterior
+                  </Link>
+                )}
+                <span className="py-2">
+                  Pagina {filters.page} de {totalPages}
+                </span>
+                {filters.page < totalPages && (
+                  <Link
+                    href={`?year=${filters.year || ''}&page=${filters.page + 1}&limit=${filters.limit}`}
+                    className="px-4 py-2 rounded border hover:bg-[#F5F7FA]"
+                  >
+                    Siguiente
+                  </Link>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>

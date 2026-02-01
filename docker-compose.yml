@@ -1,9 +1,7 @@
-version: '3.8'
-
 services:
   db:
-    image: postgres:16-alpine
-    container_name: pg_bda_compose
+    image: postgres:16
+    container_name: postgres_db
     environment:
       POSTGRES_USER: ejemplo
       POSTGRES_PASSWORD: ejemplo123
@@ -13,18 +11,19 @@ services:
     volumes:
       - ./db:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ejemplo -d bda"]
+      test: [ "CMD-SHELL", "pg_isready -U ejemplo -d bda" ]
       interval: 5s
       timeout: 5s
       retries: 5
 
   app:
-    container_name: nextjs_reports_app
     build: ./next
+    container_name: nextjs_reports_app
     ports:
       - "3000:3000"
     environment:
-      DATABASE_URL: postgres://ejemplo:ejemplo123@db:5432/bda
+      DATABASE_URL: postgres://app_client:contra123@db:5432/bda
+      NODE_ENV: production
     depends_on:
       db:
         condition: service_healthy

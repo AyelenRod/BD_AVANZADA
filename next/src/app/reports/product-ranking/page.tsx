@@ -1,18 +1,83 @@
+import { query } from '@/lib/db';
 import Link from 'next/link';
+import { rankingFiltersSchema } from '@/lib/schemas';
 
-export default function ProductRankingPage() {
-  const products = [
-    { rank: 1, name: 'iPhone 15 Pro Max', category: 'Electrónica', units: 342, revenue: 410400, medal: 'gold' },
-    { rank: 2, name: 'Samsung Galaxy S24 Ultra', category: 'Electrónica', units: 298, revenue: 357600, medal: 'silver' },
-    { rank: 3, name: 'MacBook Pro M3', category: 'Electrónica', units: 187, revenue: 448800, medal: 'bronze' },
-    { rank: 4, name: 'Nike Air Max 2024', category: 'Deportes', units: 523, revenue: 78450, medal: null },
-    { rank: 5, name: 'Sony WH-1000XM5', category: 'Electrónica', units: 412, revenue: 123600, medal: null },
-    { rank: 6, name: 'iPad Air M2', category: 'Electrónica', units: 267, revenue: 160200, medal: null },
-    { rank: 7, name: 'Adidas Ultraboost', category: 'Deportes', units: 489, revenue: 73350, medal: null },
-    { rank: 8, name: 'Camiseta Nike Dri-FIT', category: 'Ropa', units: 1245, revenue: 37350, medal: null },
-    { rank: 9, name: 'Samsung 65" QLED', category: 'Electrónica', units: 145, revenue: 217500, medal: null },
-    { rank: 10, name: 'Apple Watch Series 9', category: 'Electrónica', units: 356, revenue: 142400, medal: null }
-  ];
+export const dynamic = 'force-dynamic';
+
+interface ProductRankingRow {
+  category: string;
+  product_name: string;
+  units_sold: string;
+  rank_in_category: string;
+}
+
+interface CountResult {
+  total: string;
+}
+
+export default async function ProductRankingPage({
+  searchParams,
+}: {
+  searchParams: { [key: string]: string | string[] | undefined };
+}) {
+  const rawParams = {
+    category: Array.isArray(searchParams.category)
+      ? searchParams.category[0]
+      : searchParams.category,
+    minUnits: Array.isArray(searchParams.minUnits)
+      ? searchParams.minUnits[0]
+      : searchParams.minUnits,
+    page: Array.isArray(searchParams.page)
+      ? searchParams.page[0]
+      : searchParams.page,
+    limit: Array.isArray(searchParams.limit)
+      ? searchParams.limit[0]
+      : searchParams.limit,
+  };
+
+  const filters = rankingFiltersSchema.parse(rawParams);
+  const offset = (filters.page - 1) * filters.limit;
+
+  const queryParams: (string | number)[] = [];
+  const conditions: string[] = [];
+
+  if (filters.category) {
+    queryParams.push(filters.category);
+    conditions.push(`category = $${queryParams.length}`);
+  }
+
+  if (filters.minUnits !== undefined) {
+    queryParams.push(filters.minUnits);
+    conditions.push(`units_sold >= $${queryParams.length}`);
+  }
+
+  const whereClause = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
+
+  const result = await query<ProductRankingRow>(
+    `SELECT * FROM view_product_ranking ${whereClause} 
+     ORDER BY units_sold DESC 
+     LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}`,
+    [...queryParams, filters.limit, offset]
+  );
+
+  const products = result.rows;
+
+  const countResult = await query<CountResult>(
+    `SELECT COUNT(*) as total FROM view_product_ranking ${whereClause}`,
+    queryParams
+  );
+
+  const totalItems = parseInt(countResult.rows[0]?.total || '0');
+  const totalPages = Math.ceil(totalItems / filters.limit);
+
+  const maxUnits = products.length > 0
+    ? Math.max(...products.map(p => parseInt(p.units_sold)))
+    : 1;
+
+  const totalUnits = products.reduce(
+    (sum, p) => sum + parseInt(p.units_sold),
+    0
+  );
 
   const getMedalBadge = (rank: number) => {
     if (rank === 1) {
@@ -25,22 +90,12 @@ export default function ProductRankingPage() {
     return 'bg-[#F5F7FA] text-[#1A1D29]';
   };
 
-  const maxUnits = Math.max(...products.map(p => p.units));
-  const totalRevenue = products.reduce((sum, p) => sum + p.revenue, 0);
-  const totalUnits = products.reduce((sum, p) => sum + p.units, 0);
-
-  const categoryChampions = [
-    { category: 'Electrónica', product: 'iPhone 15 Pro Max', units: 342 },
-    { category: 'Deportes', product: 'Nike Air Max 2024', units: 523 },
-    { category: 'Ropa', product: 'Camiseta Nike Dri-FIT', units: 1245 }
-  ];
-
   return (
     <div className="min-h-screen bg-[#FAFBFC] py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
-          <Link 
-            href="/" 
+          <Link
+            href="/"
             className="inline-flex items-center text-[#006EE9] hover:text-[#000181] transition-colors duration-200 font-medium group"
           >
             <svg className="w-5 h-5 mr-2 group-hover:-translate-x-1 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -53,7 +108,38 @@ export default function ProductRankingPage() {
         <div className="bg-white rounded-2xl border border-[#E5E7EB] overflow-hidden mb-8">
           <div className="bg-[#000181] px-8 py-6">
             <h1 className="text-3xl font-bold text-white">Ranking de Productos</h1>
-            <p className="text-[#83E7FF] mt-2">Top 10 productos más vendidos por unidades</p>
+            <p className="text-[#83E7FF] mt-2">Top productos mas vendidos por categoria</p>
+
+            <div className="mt-6">
+              <form className="flex flex-wrap gap-4 items-end">
+                <div>
+                  <label className="block text-[#83E7FF] text-sm font-medium mb-1">Categoria</label>
+                  <select
+                    name="category"
+                    defaultValue={filters.category || ''}
+                    className="px-4 py-2 rounded-lg bg-white/10 border border-[#83E7FF]/30 text-white focus:outline-none focus:ring-2 focus:ring-[#83E7FF] focus:border-transparent"
+                  >
+                    <option value="" className="text-[#1A1D29]">Todas</option>
+                    <option value="Electronica" className="text-[#1A1D29]">Electronica</option>
+                    <option value="Muebles" className="text-[#1A1D29]">Muebles</option>
+                    <option value="Alimentos" className="text-[#1A1D29]">Alimentos</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[#83E7FF] text-sm font-medium mb-1">Unidades minimas</label>
+                  <input
+                    type="number"
+                    name="minUnits"
+                    defaultValue={filters.minUnits || ''}
+                    placeholder="0"
+                    className="px-4 py-2 rounded-lg bg-white/10 border border-[#83E7FF]/30 text-white placeholder-[#83E7FF]/50 focus:outline-none focus:ring-2 focus:ring-[#83E7FF] focus:border-transparent"
+                  />
+                </div>
+                <button type="submit" className="bg-[#D0FFA4] text-[#000181] px-6 py-2 rounded-lg font-semibold hover:bg-[#83E7FF] transition-colors duration-200">
+                  Filtrar
+                </button>
+              </form>
+            </div>
           </div>
 
           <div className="p-8">
@@ -67,27 +153,8 @@ export default function ProductRankingPage() {
                 <p className="text-3xl font-bold text-[#E8A0FF]">{totalUnits.toLocaleString()}</p>
               </div>
               <div className="bg-[#FAFBFC] border border-[#E5E7EB] rounded-xl p-6">
-                <p className="text-sm font-medium text-[#1A1D29] mb-1">Ingresos Totales</p>
-                <p className="text-3xl font-bold text-[#D0FFA4]">${totalRevenue.toLocaleString()}</p>
-              </div>
-            </div>
-
-            <div className="mb-8">
-              <h2 className="text-2xl font-bold text-[#1A1D29] mb-4">Campeones por Categoría</h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {categoryChampions.map((champion, index) => (
-                  <div 
-                    key={index}
-                    className="bg-[#FAFBFC] border border-[#E5E7EB] rounded-xl p-6"
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-semibold text-[#1A1D29] uppercase">{champion.category}</span>
-                      <span className="text-2xl text-[#006EE9]">🏆</span>
-                    </div>
-                    <p className="font-bold text-[#1A1D29] mb-1">{champion.product}</p>
-                    <p className="text-sm text-[#6B7280]">{champion.units.toLocaleString()} unidades</p>
-                  </div>
-                ))}
+                <p className="text-sm font-medium text-[#1A1D29] mb-1">Total en Ranking</p>
+                <p className="text-3xl font-bold text-[#D0FFA4]">{totalItems}</p>
               </div>
             </div>
 
@@ -97,29 +164,28 @@ export default function ProductRankingPage() {
                   <tr className="bg-[#F5F7FA]">
                     <th className="px-6 py-4 text-center text-xs font-semibold text-[#1A1D29] uppercase tracking-wider">Ranking</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-[#1A1D29] uppercase tracking-wider">Producto</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-[#1A1D29] uppercase tracking-wider">Categoría</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-[#1A1D29] uppercase tracking-wider">Categoria</th>
                     <th className="px-6 py-4 text-center text-xs font-semibold text-[#1A1D29] uppercase tracking-wider">Unidades</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-[#1A1D29] uppercase tracking-wider">Rendimiento</th>
-                    <th className="px-6 py-4 text-right text-xs font-semibold text-[#1A1D29] uppercase tracking-wider">Ingresos</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#E5E7EB]">
                   {products.map((product, index) => {
-                    const percentage = (product.units / maxUnits) * 100;
-                    
+                    const units = parseInt(product.units_sold);
+                    const rank = parseInt(product.rank_in_category);
+                    const percentage = (units / maxUnits) * 100;
+
                     return (
                       <tr key={index} className="hover:bg-[#F5F7FA] transition-colors duration-150">
                         <td className="px-6 py-4">
                           <div className="flex items-center justify-center">
-                            <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${getMedalBadge(product.rank)}`}>
-                              {product.rank}
+                            <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${getMedalBadge(rank)}`}>
+                              {rank}
                             </div>
                           </div>
                         </td>
                         <td className="px-6 py-4">
-                          <div className="flex items-center">
-                            <span className="font-semibold text-[#1A1D29]">{product.name}</span>
-                          </div>
+                          <span className="font-semibold text-[#1A1D29]">{product.product_name}</span>
                         </td>
                         <td className="px-6 py-4">
                           <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-[#F5F7FA] text-[#1A1D29]">
@@ -127,12 +193,12 @@ export default function ProductRankingPage() {
                           </span>
                         </td>
                         <td className="px-6 py-4 text-center">
-                          <span className="font-bold text-[#1A1D29]">{product.units.toLocaleString()}</span>
+                          <span className="font-bold text-[#1A1D29]">{units.toLocaleString()}</span>
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex items-center space-x-3">
                             <div className="flex-1 bg-[#E5E7EB] rounded-full h-3">
-                              <div 
+                              <div
                                 className="bg-[#006EE9] h-3 rounded-full transition-all duration-300"
                                 style={{ width: `${percentage}%` }}
                               ></div>
@@ -140,18 +206,39 @@ export default function ProductRankingPage() {
                             <span className="text-sm font-medium text-[#6B7280] w-12">{percentage.toFixed(0)}%</span>
                           </div>
                         </td>
-                        <td className="px-6 py-4 text-right font-bold text-[#1A1D29]">
-                          ${product.revenue.toLocaleString()}
-                        </td>
                       </tr>
                     );
                   })}
                 </tbody>
               </table>
             </div>
+
+            {totalPages > 1 && (
+              <div className="mt-8 flex justify-center gap-4">
+                {filters.page > 1 && (
+                  <Link
+                    href={`?category=${filters.category || ''}&minUnits=${filters.minUnits || ''}&page=${filters.page - 1}&limit=${filters.limit}`}
+                    className="px-4 py-2 rounded border hover:bg-[#F5F7FA]"
+                  >
+                    Anterior
+                  </Link>
+                )}
+                <span className="py-2">
+                  Pagina {filters.page} de {totalPages}
+                </span>
+                {filters.page < totalPages && (
+                  <Link
+                    href={`?category=${filters.category || ''}&minUnits=${filters.minUnits || ''}&page=${filters.page + 1}&limit=${filters.limit}`}
+                    className="px-4 py-2 rounded border hover:bg-[#F5F7FA]"
+                  >
+                    Siguiente
+                  </Link>
+                )}
+              </div>
+            )}
           </div>
-        </div>
-      </div>
-    </div>
+        </div >
+      </div >
+    </div >
   );
 }
