@@ -113,15 +113,6 @@ docker compose restart app
 docker exec -it postgres_db psql -U ejemplo -d bda
 ```
 
-## Tecnologias
-
-- PostgreSQL 16
-- Next.js 16 (App Router)
-- TypeScript
-- Zod (validacion de filtros)
-- Tailwind CSS
-- Docker & Docker Compose
-
 ## Autor
 
 Ayelen Rodriguez - Bases de Datos Avanzadas - 5to Cuatrimestre
