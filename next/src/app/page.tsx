@@ -1,55 +1,51 @@
-import { query } from './lib/db';
+import Link from 'next/link';
 
-// Define el tipo para los datos de la vista
-interface CategorySale {
-  category: string;
-  total_items_sold: number;
-  total_revenue: number;
-  avg_ticket_value: number;
-}
-
-export default async function Home() {
-  // 1. Hacemos la consulta a la base de datos
-  // NOTA: Si tu función query no soporta genéricos, quita <CategorySale>
-  const result = await query('SELECT * FROM view_category_sales');
-  
-  // Hacemos un type assertion para decirle a TypeScript el tipo de datos
-  const ventas = result.rows as CategorySale[];
-
+export default function Home() {
   return (
-    <main style={{ padding: '2rem', fontFamily: 'sans-serif' }}>
-      <h1>📊 Dashboard de Reportes</h1>
-      <p>Conexión segura establecida como: <strong>app_client</strong></p>
+    <main style={{ padding: '2rem', fontFamily: 'sans-serif', maxWidth: '800px', margin: '0 auto' }}>
+      <h1>🚀 Dashboard Corporativo</h1>
+      <p>Selecciona un reporte para visualizar los datos en tiempo real.</p>
       
-      <div style={{ marginTop: '20px' }}>
-        <h2>Vista Previa: Ventas por Categoría</h2>
-        <p>Si ves datos abajo, ¡la conexión funciona!</p>
-        
-        {/* Tabla simple para probar */}
-        {ventas.length > 0 ? (
-          <table border={1} cellPadding={10} style={{ borderCollapse: 'collapse', width: '100%' }}>
-            <thead>
-              <tr style={{ background: '#f0f0f0' }}>
-                <th>Categoría</th>
-                <th>Items Vendidos</th>
-                <th>Total ($)</th>
-                <th>Ticket Promedio</th>
-              </tr>
-            </thead>
-            <tbody>
-              {ventas.map((fila) => (
-                <tr key={fila.category}>
-                  <td>{fila.category}</td>
-                  <td>{fila.total_items_sold}</td>
-                  <td>${Number(fila.total_revenue).toFixed(2)}</td>
-                  <td>${Number(fila.avg_ticket_value).toFixed(2)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : (
-          <p>No hay datos disponibles o hay un error en la consulta.</p>
-        )}
+      <div style={{ display: 'grid', gap: '15px', marginTop: '20px' }}>
+        <Link 
+          href="/reports/category-sales"
+          style={{ padding: '15px', border: '1px solid #ccc', borderRadius: '8px', textDecoration: 'none', color: '#333', display: 'block' }}
+        >
+          <strong>📊 1. Ventas por Categoría</strong><br/>
+          <small>Ingresos y tickets promedio por familia de productos.</small>
+        </Link>
+
+        <Link 
+          href="/reports/inventory"
+          style={{ padding: '15px', border: '1px solid #ccc', borderRadius: '8px', textDecoration: 'none', color: '#333', display: 'block' }}
+        >
+          <strong>📦 2. Estado del Inventario</strong><br/>
+          <small>Monitoreo de stock y alertas urgentes.</small>
+        </Link>
+
+        <Link 
+          href="/reports/vip-customers"
+          style={{ padding: '15px', border: '1px solid #ccc', borderRadius: '8px', textDecoration: 'none', color: '#333', display: 'block' }}
+        >
+          <strong>💎 3. Clientes VIP</strong><br/>
+          <small>Mejores compradores y nivel de membresía (Gold/Silver).</small>
+        </Link>
+
+        <Link 
+          href="/reports/monthly-sales"
+          style={{ padding: '15px', border: '1px solid #ccc', borderRadius: '8px', textDecoration: 'none', color: '#333', display: 'block' }}
+        >
+          <strong>📅 4. Tendencias Mensuales</strong><br/>
+          <small>Histórico de ventas e impuestos estimados.</small>
+        </Link>
+
+        <Link 
+          href="/reports/product-ranking"
+          style={{ padding: '15px', border: '1px solid #ccc', borderRadius: '8px', textDecoration: 'none', color: '#333', display: 'block' }}
+        >
+          <strong>🏆 5. Ranking de Productos</strong><br/>
+          <small>Los productos más vendidos dentro de cada categoría.</small>
+        </Link>
       </div>
     </main>
   );
