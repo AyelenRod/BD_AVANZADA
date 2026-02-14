@@ -1,65 +1,53 @@
-import Image from "next/image";
+import Link from "next/link";
+import { getDashboardStats } from "@/lib/reports";
 
-export default function Home() {
+export const dynamic = 'force-dynamic';
+
+export default async function Home() {
+  const stats = await getDashboardStats();
+
+  const reports = [
+    { title: "Ventas por Categoría", desc: "Ver ingresos y ticket promedio por tipo de producto", url: "/reports/category-sales" },
+    { title: "Estado de Inventario", desc: "Ver productos con poco stock o agotados", url: "/reports/inventory" },
+    { title: "Clientes VIP", desc: "Ver clientes que más compran y su nivel", url: "/reports/vip-customers" },
+    { title: "Reporte Mensual", desc: "Ventas por mes y estimación de impuestos", url: "/reports/monthly-sales" },
+    { title: "Ranking de Productos", desc: "Los productos más vendidos por categoría", url: "/reports/product-ranking" },
+  ];
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div style={{ padding: '20px' }}>
+      <h1>Dashboard Principal</h1>
+      <p style={{ color: 'gray', marginBottom: '30px' }}>Bienvenido al centro de reportes.</p>
+
+      <div style={{ display: 'flex', gap: '20px', marginBottom: '40px' }}>
+        <div style={{ border: '1px solid #ccc', padding: '15px', flex: 1, borderRadius: '12px', backgroundColor: 'white' }}>
+          <div style={{ color: 'gray', fontSize: '14px' }}>Categorías</div>
+          <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#c2185b' }}>{stats.activeCategories}</div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+        <div style={{ border: '1px solid #ccc', padding: '15px', flex: 1, borderRadius: '12px', backgroundColor: 'white' }}>
+          <div style={{ color: 'gray', fontSize: '14px' }}>Alertas Stock</div>
+          <div style={{ fontSize: '24px', fontWeight: 'bold', color: 'red' }}>{stats.lowStockAlerts}</div>
         </div>
-      </main>
+        <div style={{ border: '1px solid #ccc', padding: '15px', flex: 1, borderRadius: '12px', backgroundColor: 'white' }}>
+          <div style={{ color: 'gray', fontSize: '14px' }}>Clientes VIP</div>
+          <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#9c27b0' }}>{stats.goldMembers}</div>
+        </div>
+      </div>
+
+      <h2>Lista de Reportes Disponibles</h2>
+      <div style={{ marginTop: '20px' }}>
+        {reports.map((report) => (
+          <div key={report.url} style={{ borderBottom: '1px solid #eee', padding: '15px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <div style={{ fontWeight: 'bold', color: '#880e4f' }}>{report.title}</div>
+              <div style={{ fontSize: '14px', color: 'gray' }}>{report.desc}</div>
+            </div>
+            <Link href={report.url} className="btn">
+              Abrir Reporte
+            </Link>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
