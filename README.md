@@ -2,7 +2,7 @@
 
 Este proyecto es un sistema de visualización de reportes basado en una base de datos PostgreSQL, construido con **Next.js** y **Docker**. El objetivo es mostrar diferentes métricas y análisis de datos de manera clara y segura.
 
-## 🚀 Características Principales
+## Características Principales
 
 - **Dashboard Principal**: Resumen con indicadores clave (KPIs) y acceso directo a los reportes.
 - **Reportes Detallados**:
@@ -17,14 +17,14 @@ Este proyecto es un sistema de visualización de reportes basado en una base de 
   - Acceso restringido únicamente a **Vistas** de la base de datos.
 - **Paginación**: Todos los reportes cuentan con paginación en el lado del servidor.
 
-## 🛠️ Tecnologías Usadas
+## Tecnologías Usadas
 
 - **Frontend**: Next.js 15 (App Router), React, TypeScript.
 - **Base de Datos**: PostgreSQL.
 - **Estándar de Estilos**: CSS puro (Pink & Purple theme).
 - **Contenerización**: Docker y Docker Compose.
 
-## 📦 Instalación y Uso
+## Instalación y Uso
 
 1. **Clonar el repositorio.**
 2. **Configurar variables de entorno**: 
@@ -36,7 +36,7 @@ Este proyecto es un sistema de visualización de reportes basado en una base de 
 4. **Acceder a la aplicación**:
    Abre [http://localhost:3000](http://localhost:3000) en tu navegador.
 
-## 📂 Estructura del Proyecto
+## Estructura del Proyecto
 
 - `db/`: Scripts SQL para la creación de tablas, datos, vistas y roles.
 - `src/app/`: Lógica de rutas y manejo de parámetros de navegación.
