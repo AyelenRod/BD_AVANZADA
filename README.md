@@ -1,36 +1,47 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Sistema de Reportes - Base de Datos Avanzada
 
-## Getting Started
+Este proyecto es un sistema de visualización de reportes basado en una base de datos PostgreSQL, construido con **Next.js** y **Docker**. El objetivo es mostrar diferentes métricas y análisis de datos de manera clara y segura.
 
-First, run the development server:
+## 🚀 Características Principales
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+- **Dashboard Principal**: Resumen con indicadores clave (KPIs) y acceso directo a los reportes.
+- **Reportes Detallados**:
+  - Ventas por Categoría.
+  - Estado de Inventario (con filtros).
+  - Clientes VIP (con filtros).
+  - Reporte Mensual (con gráfica de tendencia).
+  - Ranking de Productos por Categoría.
+- **Seguridad**:
+  - Uso de **Zod** para validación de parámetros.
+  - Consultas SQL parametrizadas para evitar SQL Injection.
+  - Acceso restringido únicamente a **Vistas** de la base de datos.
+- **Paginación**: Todos los reportes cuentan con paginación en el lado del servidor.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 🛠️ Tecnologías Usadas
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- **Frontend**: Next.js 15 (App Router), React, TypeScript.
+- **Base de Datos**: PostgreSQL.
+- **Estándar de Estilos**: CSS puro (Pink & Purple theme).
+- **Contenerización**: Docker y Docker Compose.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 📦 Instalación y Uso
 
-## Learn More
+1. **Clonar el repositorio.**
+2. **Configurar variables de entorno**: 
+   Crea un archivo `.env` en la raíz del proyecto basado en el ejemplo solicitado en clase (User, Password, DB, etc.).
+3. **Levantar el proyecto con Docker**:
+   ```bash
+   docker compose up --build
+   ```
+4. **Acceder a la aplicación**:
+   Abre [http://localhost:3000](http://localhost:3000) en tu navegador.
 
-To learn more about Next.js, take a look at the following resources:
+## 📂 Estructura del Proyecto
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- `db/`: Scripts SQL para la creación de tablas, datos, vistas y roles.
+- `src/app/`: Lógica de rutas y manejo de parámetros de navegación.
+- `src/lib/`: Capa de conexión a base de datos y lógica de consultas (Backend).
+- `src/views/`: Componentes visuales y maquetación de los reportes (Frontend).
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+---
+**Ayelen Monserrath Rodriguez Flores** ≽^• ˕ • ྀི≼
